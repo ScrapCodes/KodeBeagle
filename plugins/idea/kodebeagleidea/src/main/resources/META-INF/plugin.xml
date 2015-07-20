@@ -14,19 +14,18 @@
   KodeBeagle aims to solve this problem. It cites common practices from standard code references.
   </p>
 <br/>
-  How it works?
+<u>How it works ?</u>
 <br/><p>
   It goes through existing popular public projects and gathering required information. When a user searches,
   it queries the database and fetches relevant results.
 
   Currently, the source for code of popular projects is Github</p>
 <br/><p>
-  Technology Stack : Elastic Search, Spark</p>
+Technology Stack : Elastic Search, Spark</p>
 <br/><p>
-  <b>Current Status:</b> Beta</p>
+Current Status: Beta</p>
 <br/><p>
-  <b>Supported Languages:</b> Java</p>
-  <b>Report issues:</b> <a href="https://github.com/Imaginea/KodeBeagle/issues">Kodebeagle issue tracker</a>
+Supported Languages: Java</p>
 
     ]]></description>
 

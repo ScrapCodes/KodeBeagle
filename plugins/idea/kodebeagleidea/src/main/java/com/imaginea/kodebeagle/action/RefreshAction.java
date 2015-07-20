@@ -106,14 +106,12 @@ public class RefreshAction extends AnAction {
     private static final String REPO_SCORE = "Score: ";
     private static final String BANNER_FORMAT = "%s %s %s";
     private static final String HTML_U = "<html><u>";
-    private static final String U_HTML = "</u></html>";
-    private static final String HTML_U_B = "<html><u><b>";
-    private static final String B_U_HTML = "</b></u></html>";
+    private static final String END_U_HTML = "</u></html>";
     private static final String FILETYPE_HELP = "<html><center>Currently KodeBeagle supports "
             + "\"java\" files only.</center></html>";
     private static final String REPO_BANNER_FORMAT = "%s %s";
     private static final String GITHUB_LINK = "https://github.com/";
-    private static final String GOTO_GITHUB = "Go to GitHub";
+    private static final String OPEN_IN_BROWSER = "Open in a browser";
     private static final String FETCHING_PROJECTS = "Fetching projects...";
     private static final String FETCHING_FILE_CONTENTS = "Fetching file contents...";
     public static final String KODEBEAGLE = "KodeBeagle";
@@ -136,6 +134,9 @@ public class RefreshAction extends AnAction {
     private JTabbedPane jTabbedPane;
     private List<CodeInfo> codePaneTinyEditorsInfoList = new ArrayList<CodeInfo>();
     private int maxTinyEditors;
+    private final int hGap = 20;
+    private final int vGap = 5;
+    private final WrapLayout wrapLayout = new WrapLayout(FlowLayout.CENTER, hGap, vGap);
 
     public RefreshAction() {
         super(KODEBEAGLE, KODEBEAGLE, AllIcons.Actions.Refresh);
@@ -285,7 +286,7 @@ public class RefreshAction extends AnAction {
                         createEditor(tinyEditorDoc, project, fileType, false);
         windowEditorOps.releaseEditor(project, tinyEditor);
 
-        JPanel expandPanel = new JPanel(new WrapLayout());
+        JPanel expandPanel = new JPanel(wrapLayout);
 
         final String projectName = esUtils.getProjectName(fileName);
 
@@ -300,8 +301,8 @@ public class RefreshAction extends AnAction {
         }
 
         final JLabel expandLabel =
-                new JLabel(String.format(BANNER_FORMAT, HTML_U, displayFileName, U_HTML));
-        expandLabel.setForeground(JBColor.BLUE);
+                new JLabel(String.format(BANNER_FORMAT, HTML_U, displayFileName, END_U_HTML));
+        expandLabel.setForeground(JBColor.BLACK);
         expandLabel.addMouseListener(
                 new CodePaneTinyEditorExpandLabelMouseListener(displayFileName,
                                                                fileName,
@@ -309,9 +310,9 @@ public class RefreshAction extends AnAction {
         expandPanel.add(expandLabel);
 
         final JLabel projectNameLabel =
-                new JLabel(String.format(BANNER_FORMAT, HTML_U, projectName, U_HTML));
-        projectNameLabel.setForeground(JBColor.blue);
-        projectNameLabel.setToolTipText(GOTO_GITHUB);
+                new JLabel(String.format(BANNER_FORMAT, HTML_U, projectName, END_U_HTML));
+        projectNameLabel.setForeground(JBColor.BLACK);
+        projectNameLabel.setToolTipText(OPEN_IN_BROWSER);
         projectNameLabel.addMouseListener(new MouseAdapter() {
             public void mouseClicked(final MouseEvent me) {
                 if (!projectName.isEmpty()) {
@@ -319,14 +320,12 @@ public class RefreshAction extends AnAction {
                 }
             }
             public void mouseEntered(final MouseEvent me) {
-                projectNameLabel.setText(
-                        String.format(BANNER_FORMAT, HTML_U_B, projectName, B_U_HTML));
+                projectNameLabel.setForeground(JBColor.BLUE);
                 projectNameLabel.updateUI();
             }
 
             public void mouseExited(final MouseEvent me) {
-                projectNameLabel.setText(
-                        String.format(BANNER_FORMAT, HTML_U, projectName, U_HTML));
+                projectNameLabel.setForeground(JBColor.BLACK);
                 projectNameLabel.updateUI();
             }
         });
@@ -476,16 +475,14 @@ public class RefreshAction extends AnAction {
         }
         @Override
         public void mouseEntered(final MouseEvent e) {
-            expandLabel.setText(
-                    String.format(BANNER_FORMAT, HTML_U_B, displayFileName, B_U_HTML));
+            expandLabel.setForeground(JBColor.BLUE);
             expandLabel.updateUI();
 
         }
 
         @Override
         public void mouseExited(final MouseEvent e) {
-            expandLabel.setText(
-                    String.format(BANNER_FORMAT, HTML_U, displayFileName, U_HTML));
+            expandLabel.setForeground(JBColor.BLACK);
             expandLabel.updateUI();
 
         }

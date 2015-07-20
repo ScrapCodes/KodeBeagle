@@ -65,7 +65,7 @@ public class MainWindow implements ToolWindowFactory {
     public static final String JAVA = "java";
     private static final double DIVIDER_LOCATION = 0.8;
     private static final String ALL_TAB = "All";
-    private static final String FEATURED_TAB = "Top";
+    private static final String FEATURED_TAB = "Spotlight";
     private static final int EDITOR_SCROLL_PANE_WIDTH = 200;
     private static final int EDITOR_SCROLL_PANE_HEIGHT = 300;
     private static final String KODEBEAGLE = "KodeBeagle";
