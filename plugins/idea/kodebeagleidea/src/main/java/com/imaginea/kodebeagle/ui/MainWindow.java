@@ -22,6 +22,8 @@ import com.imaginea.kodebeagle.action.EditSettingsAction;
 import com.imaginea.kodebeagle.action.ExpandProjectTreeAction;
 import com.imaginea.kodebeagle.action.RefreshAction;
 import com.imaginea.kodebeagle.object.WindowObjects;
+import com.imaginea.kodebeagle.settings.ui.LegalNotice;
+import com.imaginea.kodebeagle.settings.ui.SettingsConfigurable;
 import com.imaginea.kodebeagle.util.WindowEditorOps;
 import com.intellij.ide.plugins.IdeaPluginDescriptor;
 import com.intellij.ide.plugins.PluginManager;

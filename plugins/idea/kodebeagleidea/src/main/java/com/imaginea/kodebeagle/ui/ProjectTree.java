@@ -211,8 +211,8 @@ public class ProjectTree {
                     editorDocOps.addHighlighting(codeInfo.getLineNumbers(), document);
                     editorDocOps.gotoLine(codeInfo.getLineNumbers().get(0), document);
                 } catch (Exception e) {
+                    KBNotification.getInstance().error(e);
                     e.printStackTrace();
-
                 }
             }
         };

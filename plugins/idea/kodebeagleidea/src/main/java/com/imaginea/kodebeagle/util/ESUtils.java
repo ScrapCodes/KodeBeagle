@@ -25,11 +25,10 @@ import com.google.gson.stream.JsonReader;
 import com.imaginea.kodebeagle.action.RefreshAction;
 import com.imaginea.kodebeagle.model.Settings;
 import com.imaginea.kodebeagle.object.WindowObjects;
+import com.imaginea.kodebeagle.ui.KBNotification;
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.StringReader;
-import java.net.MalformedURLException;
 import java.net.URLEncoder;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -176,20 +175,16 @@ public class ESUtils {
             }
             bufferedReader.close();
             httpClient.getConnectionManager().shutdown();
-        } catch (IllegalStateException e) {
-            e.printStackTrace();
-            return RefreshAction.EMPTY_ES_URL;
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-            return RefreshAction.EMPTY_ES_URL;
-        } catch (IOException e) {
-            e.printStackTrace();
-            return RefreshAction.EMPTY_ES_URL;
-        } catch (IllegalArgumentException e) {
-            e.printStackTrace();
-            return RefreshAction.EMPTY_ES_URL;
+        } catch (Exception e) {
+            return handleHttpException(e);
         }
         return stringBuilder.toString();
+    }
+
+    private String handleHttpException(final Exception e) {
+        KBNotification.getInstance().error(e);
+        e.printStackTrace();
+        return RefreshAction.EMPTY_ES_URL;
     }
 
     public final String getRepoStars(final String repoStarsJson) {

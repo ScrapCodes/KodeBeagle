@@ -17,9 +17,10 @@
 
 package com.imaginea.kodebeagle.util;
 
+import com.google.common.base.Preconditions;
 import com.imaginea.kodebeagle.object.WindowObjects;
+import com.imaginea.kodebeagle.ui.KBNotification;
 import com.intellij.codeInsight.highlighting.HighlightUsagesHandler;
-import com.intellij.notification.NotificationGroup;
 import com.intellij.openapi.editor.CaretModel;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
@@ -39,7 +40,6 @@ import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.wm.ToolWindowId;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -50,15 +50,7 @@ import com.intellij.psi.PsiJavaFile;
 import com.intellij.ui.Gray;
 import com.intellij.ui.JBColor;
 import java.awt.Color;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.nio.channels.Channel;
-import java.nio.channels.FileChannel;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -70,7 +62,6 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
-import org.apache.commons.codec.binary.Hex;
 import org.jetbrains.annotations.NotNull;
 
 public class EditorDocOps {
@@ -205,6 +196,7 @@ public class EditorDocOps {
                     }
                 }
             } catch (PatternSyntaxException e) {
+                KBNotification.getInstance().error(e);
                 e.printStackTrace();
             }
         }
@@ -219,65 +211,30 @@ public class EditorDocOps {
         final String tempDir = System.getProperty(JAVA_IO_TMP_DIR);
         final String trimmedFileName =
                 FileUtil.sanitizeFileName(StringUtil.trimEnd(fileName, displayFileName));
-        final String digest = getDigestAsString(trimmedFileName);
-        final String fullFilePath = createFileWithContents(displayFileName, contents, tempDir, digest);
+        final String digest = Utils.getInstance().getDigestAsString(trimmedFileName);
+        final String fullFilePath = Utils.getInstance()
+                .createFileWithContents(displayFileName, contents, tempDir, digest);
         return getVirtualFile(fullFilePath, displayFileName, contents, tempDir);
     }
 
-    private VirtualFile getVirtualFile(String filePath, String displayFileName, String contents,
-                                       String baseDir) throws IOException {
+    private VirtualFile getVirtualFile(final String filePath, final String displayFileName,
+                                             final String contents, final String baseDir)
+            throws IOException {
+
         VirtualFile virtualFile = LocalFileSystem.getInstance().findFileByPath(filePath);
         if (virtualFile == null) {
             // This happens when intellij is confused about the existence of the file.
             // Essentially it thinks the file was deleted, but we restored it.
             // Unfortunately, it can not infer the fact that it was restored again.
             String digest = UUID.randomUUID().toString().substring(0, 10);
-            final String fullFilePath = createFileWithContents(displayFileName, contents, baseDir, digest);
-            return getVirtualFile(fullFilePath, displayFileName, contents, baseDir);
+            final String fullFilePath = Utils.getInstance()
+                            .createFileWithContents(displayFileName, contents, baseDir, digest);
+            virtualFile = LocalFileSystem.getInstance().findFileByPath(fullFilePath);
+            Preconditions.checkNotNull(virtualFile,
+                    "Virtual file should not be null. Can be an issue with FileSystem.");
         }
         windowEditorOps.setWriteStatus(virtualFile, false);
         return virtualFile;
-    }
-
-
-    @NotNull
-    private String createFileWithContents(String displayFileName, String contents, String baseDir,
-                                          String digest) throws IOException {
-        final String fileParentPath =
-                String.format("%s%c%s", baseDir, File.separatorChar, digest);
-        final File parentDir = new File(fileParentPath);
-        FileUtil.createDirectory(parentDir);
-        parentDir.deleteOnExit();
-        final String fullFilePath =
-                String.format("%s%c%s",
-                        parentDir.getAbsolutePath(), File.separatorChar, displayFileName);
-        final File file = new File(fullFilePath);
-        if (!file.exists()) {
-            FileUtil.createIfDoesntExist(file);
-            forceWrite(contents, file);
-            file.deleteOnExit();
-        }
-        return fullFilePath;
-    }
-
-    private void forceWrite(String contents, File file) throws IOException {
-        FileOutputStream s = new FileOutputStream(file.getAbsolutePath(), false);
-        s.write(contents.getBytes());
-        FileChannel c = s.getChannel();
-        c.force(true);
-        s.getFD().sync();
-        c.close();
-        s.close();
-    }
-
-    @NotNull
-    private String getDigestAsString(final String trimmedFileName)
-            throws UnsupportedEncodingException, NoSuchAlgorithmException {
-        MessageDigest crypt = MessageDigest.getInstance("SHA-1");
-        crypt.reset();
-        crypt.update(trimmedFileName.getBytes(StandardCharsets.UTF_8));
-        // We think 10 chars is safe enough to rely on.
-        return Hex.encodeHexString(crypt.digest()).substring(0, 10);
     }
 
     public final void addHighlighting(final List<Integer> linesForHighlighting,

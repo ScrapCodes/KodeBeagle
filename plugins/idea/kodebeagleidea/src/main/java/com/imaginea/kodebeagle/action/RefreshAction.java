@@ -18,10 +18,11 @@
 package com.imaginea.kodebeagle.action;
 
 import com.imaginea.kodebeagle.model.CodeInfo;
+import com.imaginea.kodebeagle.model.Settings;
 import com.imaginea.kodebeagle.object.WindowObjects;
+import com.imaginea.kodebeagle.ui.KBNotification;
 import com.imaginea.kodebeagle.ui.MainWindow;
 import com.imaginea.kodebeagle.ui.ProjectTree;
-import com.imaginea.kodebeagle.model.Settings;
 import com.imaginea.kodebeagle.ui.WrapLayout;
 import com.imaginea.kodebeagle.util.ESUtils;
 import com.imaginea.kodebeagle.util.EditorDocOps;
@@ -32,7 +33,6 @@ import com.intellij.ide.BrowserUtil;
 import com.intellij.ide.DataManager;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
-import com.intellij.notification.Notifications;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataConstants;
@@ -49,8 +49,8 @@ import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.ui.classFilter.ClassFilter;
 import com.intellij.ui.JBColor;
+import com.intellij.ui.classFilter.ClassFilter;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.event.MouseAdapter;
@@ -164,6 +164,7 @@ public class RefreshAction extends AnAction {
         try {
             init();
         } catch (IOException ioe) {
+            KBNotification.getInstance().error(ioe);
             ioe.printStackTrace();
         }
     }
@@ -187,7 +188,7 @@ public class RefreshAction extends AnAction {
                 if (!allImports.isEmpty()) {
                     Set<String> importsInLines = getImportsInLines(projectEditor, allImports);
                     if (!importsInLines.isEmpty()) {
-                        ProgressManager.getInstance().run(new QueryBDServerTask(importsInLines,
+                        ProgressManager.getInstance().run(new QueryKBServerTask(importsInLines,
                                 allImports, jTree, model, root));
                     } else {
                         if (projectEditor.getSelectionModel().hasSelection()) {
@@ -471,14 +472,6 @@ public class RefreshAction extends AnAction {
         });
     }
 
-    private Notification getNotification(final String title, final String content,
-                                         final NotificationType notificationType) {
-
-        final Notification notification = new Notification(KODEBEAGLE,
-                title, content, notificationType);
-        return notification;
-    }
-
     private class CodePaneTinyEditorExpandLabelMouseListener extends MouseAdapter {
         private final String displayFileName;
         private final String fileName;
@@ -494,12 +487,9 @@ public class RefreshAction extends AnAction {
 
         @Override
         public void mouseClicked(final MouseEvent e) {
-            // Unfortunately this can fail in many ways.
-            // We are deliberately ignoring error to stop plugin from crashing.
             try {
                 VirtualFile virtualFile = editorDocOps.getVirtualFile(fileName, displayFileName,
                         windowObjects.getFileNameContentsMap().get(fileName));
-                // We ignore click if file creation failed.
                 FileEditorManager.getInstance(windowObjects.getProject()).
                         openFile(virtualFile, true, true);
                 Document document =
@@ -510,9 +500,7 @@ public class RefreshAction extends AnAction {
                 editorDocOps.gotoLine(windowObjects.
                         getFileNameNumbersMap().get(fileName).get(0), document);
             } catch (Exception exception) {
-                final Notification notification = getNotification("Unable to process", "" + exception.toString(),
-                        NotificationType.ERROR);
-                notification.notify(windowObjects.getProject());
+                KBNotification.getInstance().error(exception);
                 exception.printStackTrace();
             }
         }
@@ -532,7 +520,7 @@ public class RefreshAction extends AnAction {
         }
     }
 
-    private class QueryBDServerTask extends Task.Backgroundable {
+    private class QueryKBServerTask extends Task.Backgroundable {
         public static final int MIN_IMPORT_SIZE = 3;
         private final Set<String> importsInLines;
         private final Set<String> finalImports;
@@ -544,7 +532,7 @@ public class RefreshAction extends AnAction {
         private volatile boolean isFailed;
         private String httpErrorMsg;
 
-        QueryBDServerTask(final Set<String> pImportsInLines, final Set<String> pFinalImports,
+        QueryKBServerTask(final Set<String> pImportsInLines, final Set<String> pFinalImports,
                           final JTree pJTree, final DefaultTreeModel pModel,
                           final DefaultMutableTreeNode pRoot) {
             super(windowObjects.getProject(), KODEBEAGLE, true,
@@ -563,20 +551,17 @@ public class RefreshAction extends AnAction {
                 projectNodes = doBackEndWork(importsInLines, finalImports, indicator);
                 long endTime = System.nanoTime();
                 double timeToFetchResults = (endTime - startTime) / CONVERT_TO_SECONDS;
-                if (windowObjects.getNotification() != null) {
-                    windowObjects.getNotification().expire();
-                }
+
                 String notificationTitle = String.format(FORMAT, QUERIED,
                         windowObjects.getEsURL(), FOR);
-                String notificationContent =
-                        getResultNotificationMessage(esUtils.getResultCount(),
+                String notificationContent = " "
+                        + getResultNotificationMessage(esUtils.getResultCount(),
                                 esUtils.getTotalHitsCount(), timeToFetchResults);
-                notification =
-                        getNotification(notificationTitle, notificationContent,
+                notification = KBNotification.getInstance()
+                        .notifyBalloon(notificationTitle + notificationContent,
                                 NotificationType.INFORMATION);
-                Notifications.Bus.notify(notification);
-                windowObjects.setNotification(notification);
             } catch (RuntimeException rte) {
+                KBNotification.getInstance().error(rte);
                 rte.printStackTrace();
                 httpErrorMsg = rte.getMessage();
                 isFailed = true;
@@ -585,10 +570,8 @@ public class RefreshAction extends AnAction {
 
         private String getResultNotificationMessage(final int resultCount, final long totalCount,
                                                     final double timeToFetchResults) {
-            String resultNotification =
-                    importsInLines.toString() + String.format(RESULT_NOTIFICATION_FORMAT,
-                            resultCount, totalCount, timeToFetchResults);
-            return resultNotification;
+            return importsInLines.toString() + String.format(RESULT_NOTIFICATION_FORMAT,
+                    resultCount, totalCount, timeToFetchResults);
         }
 
         @Override
@@ -600,6 +583,7 @@ public class RefreshAction extends AnAction {
                                 projectNodes);
                         goToFeaturedPane();
                     } catch (RuntimeException rte) {
+                        KBNotification.getInstance().error(rte);
                         rte.printStackTrace();
                     }
                 } else {
@@ -610,7 +594,9 @@ public class RefreshAction extends AnAction {
                     }
                     showHelpInfo(helpMsg);
                     jTree.updateUI();
-                    notification.expire();
+                    if (notification != null) {
+                        notification.expire();
+                    }
                 }
             } else {
                 showHelpInfo(httpErrorMsg);
