@@ -40,6 +40,9 @@ import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiImportList;
+import com.intellij.psi.PsiImportStatementBase;
+import com.intellij.psi.PsiJavaCodeReferenceElement;
 import com.intellij.psi.PsiJavaFile;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.util.PsiTreeUtil;
@@ -105,13 +108,14 @@ public class EditorDocOps {
     public final Set<String> getImportInLines(final Editor projectEditor) {
         PsiDocumentManager psiInstance =
                 PsiDocumentManager.getInstance(windowObjects.getProject());
+        final Document document = projectEditor.getDocument();
         PsiJavaFile psiJavaFile =
-                (PsiJavaFile) psiInstance.getPsiFile(projectEditor.getDocument());
+                (PsiJavaFile) psiInstance.getPsiFile(document);
         PsiJavaElementVisitor psiJavaElementVisitor =
                 new PsiJavaElementVisitor(start, end);
         if (psiJavaFile != null && psiJavaFile.findElementAt(start) != null) {
             PsiElement psiElement = psiJavaFile.findElementAt(start);
-            final PsiElement psiMethod =  PsiTreeUtil.getParentOfType(psiElement, PsiMethod.class);
+            final PsiElement psiMethod = PsiTreeUtil.getParentOfType(psiElement, PsiMethod.class);
             if (psiMethod != null) {
                 psiMethod.accept(psiJavaElementVisitor);
             } else {
@@ -122,11 +126,40 @@ public class EditorDocOps {
             }
         }
         Set<String> importsInLines = psiJavaElementVisitor.getImportsSet();
-        importsInLines = removeImplicitImports(importsInLines);
+        Set<String> userImports = getPSIImportList(document);
+        importsInLines = removeImplicitImports(importsInLines, userImports);
         return importsInLines;
     }
 
-    private Set<String> removeImplicitImports(final Set<String> importsInLines) {
+    public final Set<String> getPSIImportList(final Document doc) {
+        PsiDocumentManager psiInstance = PsiDocumentManager.getInstance(windowObjects.getProject());
+        final Set<String> imports = new HashSet<String>();
+        if (psiInstance != null && (psiInstance.getPsiFile(doc)) != null) {
+            PsiFile psiFile = psiInstance.getPsiFile(doc);
+            if (psiFile != null
+                    && psiFile.getFileType().getDefaultExtension().equals(FILE_EXTENSION)) {
+                PsiJavaFile psiJavaFile = (PsiJavaFile) psiFile;
+                PsiImportList psiImportList = psiJavaFile.getImportList();
+                if (psiImportList != null) {
+                    final PsiImportStatementBase[] allImportStatements =
+                            psiImportList.getAllImportStatements();
+                    for (PsiImportStatementBase i : allImportStatements) {
+                        if (i.getImportReference() != null) {
+                            PsiJavaCodeReferenceElement importReference =
+                                    i.getImportReference();
+                            if (importReference != null) {
+                                imports.add(importReference.getCanonicalText());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return imports;
+    }
+
+    private Set<String> removeImplicitImports(final Set<String> importsInLines,
+                                              final Set<String> userImports) {
         Set<String> excludeImplicitImports = new HashSet<String>();
         for (String importValue : importsInLines) {
             if (importValue != null && importValue.startsWith(IMPLICIT_IMPORT)) {
@@ -134,7 +167,31 @@ public class EditorDocOps {
             }
         }
         importsInLines.removeAll(excludeImplicitImports);
+        Set<String> starImports = getStarImports(userImports);
+        if (!starImports.isEmpty()) {
+            userImports.removeAll(starImports);
+            for (String imp : importsInLines) {
+                for (String sImp : starImports) {
+                    if (imp.startsWith(sImp)) {
+                        userImports.add(imp);
+                    }
+                }
+            }
+        }
+        importsInLines.retainAll(userImports);
         return importsInLines;
+    }
+
+    @NotNull
+    private Set<String> getStarImports(final Set<String> userImports) {
+        Set<String> starImports = new HashSet<>();
+        // Star import case.
+        for (String imp : userImports) {
+            if (imp.endsWith("*")) {
+                starImports.add(imp.replaceFirst("\\*", ""));
+            }
+        }
+        return starImports;
     }
 
     public final Set<String> excludeInternalImports(@NotNull final Set<String> imports) {

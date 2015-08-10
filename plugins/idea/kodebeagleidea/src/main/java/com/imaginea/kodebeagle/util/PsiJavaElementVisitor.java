@@ -93,8 +93,8 @@ public class PsiJavaElementVisitor extends JavaRecursiveElementVisitor {
 
     public final void visitPsiDeclarationStatement(final PsiDeclarationStatement
                                                            declarationStatement) {
-         Collection<PsiTypeElement> typeElements =
-                 PsiTreeUtil.findChildrenOfType(declarationStatement, PsiTypeElement.class);
+        Collection<PsiTypeElement> typeElements =
+                PsiTreeUtil.findChildrenOfType(declarationStatement, PsiTypeElement.class);
         for (PsiTypeElement element : typeElements) {
             String type = removeSpecialSymbols(element.getType().getCanonicalText());
             importsSet.add(type);
@@ -124,8 +124,8 @@ public class PsiJavaElementVisitor extends JavaRecursiveElementVisitor {
                         importsSet.add(psiFieldInitializer);
                     }
                 }
-                importsSet.add(type);
             }
+            importsSet.add(type);
         }
     }
 
