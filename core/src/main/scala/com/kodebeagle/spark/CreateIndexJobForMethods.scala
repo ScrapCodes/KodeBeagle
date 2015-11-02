@@ -18,14 +18,13 @@
 package com.kodebeagle.spark
 
 import com.kodebeagle.configuration.KodeBeagleConfig
-import com.kodebeagle.indexer.{Statistics, Repository, JavaASTBasedIndexerForMethods}
+import com.kodebeagle.parser._
+import com.kodebeagle.indexer.{JavaASTBasedIndexerForMethods, Repository, Statistics}
 import com.kodebeagle.spark.SparkIndexJobHelper._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 
-import scala.collection.mutable.ArrayBuffer
-
-object CreateIndexJobForMethods  {
+object CreateIndexJobForMethods {
 
   def main(args: Array[String]): Unit = {
     val conf = new SparkConf()
@@ -36,19 +35,21 @@ object CreateIndexJobForMethods  {
 
     val sc: SparkContext = createSparkContext(conf)
 
-    val zipFileExtractedRDD: RDD[(List[(String, String)],
+    val zipFileExtractedRDD: RDD[(List[(String, String)], List[(String, String)],
       Option[Repository], List[String], Statistics)] = makeZipFileExtractedRDD(sc)
 
     // Create indexes for elastic search.
 
     zipFileExtractedRDD.map { f =>
-      val (files, repo, packages, stats) = f
+      val (javaFiles, scalaFiles, repo, packages, stats) = f
       (repo, new JavaASTBasedIndexerForMethods()
-        .generateTokensWithMethods(files.toMap, packages, repo), mapToSourceFiles(repo, files),
-        stats)
-    }.flatMap { case (Some(a), b, c, d) =>
-      Seq(toJson(a, isToken = false), toJson(b, isToken = false), toJson(c, isToken = false),
-      toJson(d, isToken = false))
+        .generateTokensWithMethods(javaFiles.toMap, packages, repo),
+        ScalaParser.generateTokensWithBraceContext(scalaFiles.toMap, packages, repo),
+        mapToSourceFiles(repo, javaFiles ++ scalaFiles), stats)
+    }.flatMap { case (Some(repository), javaIndices, scalaIndices, sourceFiles, stats) =>
+      Seq(toJson(repository, isToken = false), toJson(javaIndices, isToken = false),
+        toJson(scalaIndices, isToken = false), toJson(sourceFiles, isToken = false),
+        toJson(stats, isToken = false))
     case _ => Seq()
     }.saveAsTextFile(KodeBeagleConfig.sparkIndexOutput)
   }

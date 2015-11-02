@@ -32,12 +32,12 @@ object CreateIndexJob {
 
     val sc: SparkContext = createSparkContext(conf)
 
-    val zipFileExtractedRDD: RDD[(List[(String, String)],
+    val zipFileExtractedRDD: RDD[(List[(String, String)], List[(String, String)],
       Option[Repository], List[String], Statistics)] = makeZipFileExtractedRDD(sc)
 
     // Create indexes for elastic search.
     zipFileExtractedRDD.map { f =>
-      val (files, repo, packages, stats) = f
+      val (files, _, repo, packages, stats) = f
       (repo, new JavaASTBasedIndexer()
         .generateTokens(files.toMap, packages, repo), mapToSourceFiles(repo, files), stats)
     }.flatMap { case (Some(a), b, c, d) =>

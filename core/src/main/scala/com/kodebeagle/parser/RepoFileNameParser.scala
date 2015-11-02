@@ -35,7 +35,7 @@ object RepoFileNameParser extends RegexParsers with Logger {
     "(|.*/)repo".r ~> rep(tilde ~> name) ^^ {
       x => val y = x.toArray
         val branch = if (y.size == 7) y(5) else "master"
-        Repository(y(0), y(2).toInt, y(1), false, "Java", branch,
+        Repository(y(0), y(2).toInt, y(1), false, y(4), branch,
           x.last.trim.stripSuffix(".zip").toInt)
     }
   }

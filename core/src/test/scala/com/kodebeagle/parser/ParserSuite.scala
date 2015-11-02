@@ -199,6 +199,27 @@ class GenericParserTest extends FunSuite {
     assert(parsed.get.exists(_.contains("val a = 1000")))
   }
 
+  test("Should fail for unmatched curly brackets.") {
+    val parsed: Option[List[String]] = GenericBraceMatchingParser(
+      """
+        |import abc.xyz
+        |import abc.xyz;
+        |
+        |object Test {
+        |  val g = 1
+        |  def fun = {
+        |   // some content.
+        |   val i = 10
+        |
+        |}
+        |class A {
+        | val a = 1000
+        |}
+        |
+      """.stripMargin)
+    assert(parsed.isEmpty)
+  }
+
   test("With real java file") {
     val stream: InputStream =
       Thread.currentThread.getContextClassLoader.getResourceAsStream("TransportClient.java")
@@ -254,7 +275,7 @@ class ZipParserTest extends FunSuite {
   test("read zip file correctly") {
     val stream: InputStream = Thread.currentThread.getContextClassLoader.getResourceAsStream(
       "repo~Cascading~cascading-dbmigrate~576623~false~Java~master~65.zip")
-    val (files, packages, statistics) = readFilesAndPackages(576623, new ZipInputStream(stream))
-    assert(statistics === Statistics(576623, 529, 4, 19))
+    val (_, _, _, statistics) = readFilesAndPackages(576623, new ZipInputStream(stream))
+    assert(statistics === Statistics(576623, 843, 8, 33))
   }
 }

@@ -41,17 +41,18 @@ object SparkIndexJobHelper {
 
   def createSparkContext(conf: SparkConf): SparkContext = new SparkContext(conf)
 
-  def makeZipFileExtractedRDD(sc: SparkContext):
-  RDD[(List[(String, String)], Option[Repository], List[String], Statistics)] = {
-    val zipFileNameRDD = sc.binaryFiles(KodeBeagleConfig.githubDir).map { case (zipFile, stream) =>
+  def makeZipFileExtractedRDD(sc: SparkContext): RDD[(List[(String, String)],
+    List[(String, String)], Option[Repository], List[String], Statistics)] = {
+    val zipFileNameRDD = sc.binaryFiles(KodeBeagleConfig.githubDir).map {
+      case (zipFile, stream) =>
       (zipFile.stripPrefix("file:").stripPrefix("hdfs:"), stream)
     }
     val zipFileExtractedRDD = zipFileNameRDD.map { case (zipFileName, stream) =>
       val repo: Option[Repository] = RepoFileNameParser(zipFileName)
-      val (filesMap, packages, stats) =
+      val (javaFilesMap, scalaFilesMap, packages, stats) =
         ZipBasicParser.readFilesAndPackages(
           repo.getOrElse(Repository.invalid).id, new ZipInputStream(stream.open()))
-      (filesMap, repo, packages, stats)
+      (javaFilesMap, scalaFilesMap, repo, packages, stats)
     }
     zipFileExtractedRDD
   }
@@ -80,10 +81,10 @@ object SparkIndexJobHelper {
     val indexName = t.productPrefix.toLowerCase
     if (addESHeader && isToken) {
       """|{ "index" : { "_index" : "kodebeagle", "_type" : "custom" } }
-         | """.stripMargin + write(t)
+        | """.stripMargin + write(t)
     } else if (addESHeader) {
       s"""|{ "index" : { "_index" : "$indexName", "_type" : "type$indexName" } }
-          |""".stripMargin + write(t)
+         |""".stripMargin + write(t)
     } else "" + write(t)
 
   }

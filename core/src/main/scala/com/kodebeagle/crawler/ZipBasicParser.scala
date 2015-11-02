@@ -37,11 +37,14 @@ object ZipBasicParser extends Logger {
   private def fileNameToPackageName(s: String) = {
     val (_, packageN) = s.splitAt(s.indexOf("/src/"))
     packageN.stripPrefix("/").stripSuffix("/").replace('/', '.').stripPrefix("src.main.java.")
+      .stripPrefix("src.main.scala.")
   }
 
   def readFilesAndPackages(repoId: Int, zipStream: ZipInputStream): (List[(String, String)],
+    List[(String, String)],
     List[String], Statistics) = {
-    val list = mutable.ArrayBuffer[(String, String)]()
+    val javaFileList = mutable.ArrayBuffer[(String, String)]()
+    val scalaFileList = mutable.ArrayBuffer[(String, String)]()
     val allPackages = mutable.ArrayBuffer[String]()
     var size: Long = 0
     var fileCount: Int = 0
@@ -50,14 +53,19 @@ object ZipBasicParser extends Logger {
     try {
       do {
         ze = Option(zipStream.getNextEntry)
-        ze.foreach { ze => if (ze.getName.endsWith("java") && !ze.isDirectory) {
+        ze.foreach { ze => if (!ze.isDirectory) {
           val fileName = ze.getName
           val fileContent = readContent(zipStream)
           size += fileContent.length
-          list += (fileName -> fileContent)
           fileCount += 1
           sloc += fileContent.split("\n").size
-        } else if (ze.isDirectory && ze.getName.toLowerCase.matches(".*src/main/java.*")) {
+          if (ze.getName.endsWith("scala")) {
+            scalaFileList += (fileName -> fileContent)
+          } else if (ze.getName.endsWith("java")) {
+            javaFileList += (fileName -> fileContent)
+          }
+        } else if (ze.isDirectory && (ze.getName.toLowerCase.matches(".*src/main/java.*")
+          || ze.getName.toLowerCase.matches(".*src/main/scala.*"))) {
           allPackages += fileNameToPackageName(ze.getName)
         }
         }
@@ -68,7 +76,10 @@ object ZipBasicParser extends Logger {
     } finally {
       zipStream.close()
     }
-    (list.toList, allPackages.toList, Statistics(repoId, sloc, fileCount, size / 1024))
+    // This is not precise, and might be effected by char-encoding.
+    val sizeInKB: Long = size / 1024
+    (javaFileList.toList, scalaFileList.toList,
+      allPackages.toList, Statistics(repoId, sloc, fileCount, sizeInKB))
   }
 
   def readContent(stream: ZipInputStream): String = {
@@ -94,36 +105,39 @@ object ZipUtil extends Logger {
       val bOut = new BufferedOutputStream(fOut)
       val tOut = new ZipArchiveOutputStream(bOut)
       addFileToZip(tOut, directoryPath, "")
-      tOut.finish(); tOut.close(); bOut.close(); fOut.close();
+      tOut.finish()
+      tOut.close()
+      bOut.close()
+      fOut.close()
     } catch {
-      case ex: Exception => log.error(s"exception while zipping directory ${directoryPath}", ex)
+      case ex: Exception => log.error(s"exception while zipping directory $directoryPath", ex)
     }
   }
 
   def addFileToZip(zOut: ZipArchiveOutputStream, path: String, base: String) {
-    val f = new File(path);
-    val entryName = base + f.getName();
-    val zipEntry = new ZipArchiveEntry(f, entryName);
+    val f = new File(path)
+    val entryName = base + f.getName
+    val zipEntry = new ZipArchiveEntry(f, entryName)
     import org.apache.commons.io.IOUtils
-    zOut.putArchiveEntry(zipEntry);
-    if (f.isFile()) {
+    zOut.putArchiveEntry(zipEntry)
+    if (f.isFile) {
       try {
         for {
           fInputStream <- Option(new FileInputStream(f))
         } yield {
-          IOUtils.copy(fInputStream, zOut);
-          zOut.closeArchiveEntry();
-          IOUtils.closeQuietly(fInputStream);
+          IOUtils.copy(fInputStream, zOut)
+          zOut.closeArchiveEntry()
+          IOUtils.closeQuietly(fInputStream)
         }
       } catch {
         case ex: Exception => log.error(s"exception while zipping file ${f.getAbsolutePath}", ex)
       }
     } else {
-      zOut.closeArchiveEntry();
-      val children = f.listFiles();
-      if (Option(children) != None) {
+      zOut.closeArchiveEntry()
+      val children = f.listFiles()
+      if (Option(children).isDefined) {
         for (child <- children) {
-          addFileToZip(zOut, child.getAbsolutePath(), entryName + "/");
+          addFileToZip(zOut, child.getAbsolutePath, entryName + "/")
         }
       }
     }
