@@ -99,13 +99,14 @@ object ScalaParser extends Logger {
       // This is inefficient to run but convenient to express.
       val fileContentWithLineNums = (for ((l, n) <- lines zip (1 to lines.length)) yield
       n + "~" + l).reduce(_ + "\n" + _)
-      val codeBlocks: List[String] = GenericBraceMatchingParser(fileContentWithLineNums).get
+      val codeBlocks: Option[List[String]] = GenericBraceMatchingParser(fileContentWithLineNums)
       // TODO: This sort of stitching of numbers and separating them again was needed because of
       // Parser being dumb.
-      codeBlocks.map { codeBlock =>
+
+      if(codeBlocks.isDefined) { codeBlocks.get.map { codeBlock =>
         val tokens: Array[MethodToken] = codeBlock.split("\n").map { lineWithLineNumber =>
           val (lineNum, line) = lineWithLineNumber.splitAt(lineWithLineNumber.indexOf("~"))
-         (line, lineNum)
+          (line, lineNum)
         }.flatMap { case (line, lineNumber) =>
           if (Try(lineNumber.toInt).isFailure) {
             Set[MethodToken]()
@@ -134,6 +135,7 @@ object ScalaParser extends Logger {
         ImportsMethods(repository.id, fileName, tokens.toSet[MethodToken],
           repository.stargazersCount)
       }
+      } else {Set()}
 
     }.toSet // TODO: These toSet are inefficient, work on them later.
   }
@@ -146,6 +148,5 @@ object ScalaParser extends Logger {
       x =>
         x.ast.tokens.filter(_.tokenType == Tokens.DEF).map(_.text)
     }
-
   }
 }
